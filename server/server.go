@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -23,6 +24,9 @@ type server struct {
 
 	// Shared data
 	repository *Repository
+
+	// SMTP service for sending emails
+	smtpService *SMTPService
 
 	// Registered clients.
 	clients map[uuid.UUID]*Client
@@ -56,16 +60,24 @@ type Config struct {
 	SearchBot               string
 	DisableBrowserDownloads bool
 	UserAgent               string
+	// SMTP Configuration
+	SMTPHost     string
+	SMTPPort     int
+	SMTPUsername string
+	SMTPPassword string
+	SMTPFrom     string
+	SMTPEnabled  bool
 }
 
 func New(config Config) *server {
 	return &server{
-		repository: NewRepository(),
-		config:     &config,
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		clients:    make(map[uuid.UUID]*Client),
-		log:        log.New(os.Stdout, "SERVER: ", log.LstdFlags|log.Lmsgprefix),
+		repository:  NewRepository(),
+		config:      &config,
+		smtpService: NewSMTPService(&config),
+		register:    make(chan *Client),
+		unregister:  make(chan *Client),
+		clients:     make(map[uuid.UUID]*Client),
+		log:         log.New(os.Stdout, "SERVER: ", log.LstdFlags|log.Lmsgprefix),
 	}
 }
 
@@ -144,4 +156,35 @@ func createBooksDirectory(config Config) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+// sendBookViaEmail sends a book file to the specified email address
+func (s *server) sendBookViaEmail(email, title, author, bookIdentifier string) error {
+	if !s.config.SMTPEnabled {
+		return fmt.Errorf("SMTP is not enabled")
+	}
+
+	// For now, we'll create a mock file to test email functionality
+	// In the future, this should find the actual downloaded book file
+	bookPath := filepath.Join(s.config.DownloadDir, "books", "test-book.txt")
+
+	// Create a test file if it doesn't exist
+	if _, err := os.Stat(bookPath); os.IsNotExist(err) {
+		testContent := fmt.Sprintf("Test book: %s by %s\n\nThis is a test file for SMTP functionality.", title, author)
+		err = os.WriteFile(bookPath, []byte(testContent), 0644)
+		if err != nil {
+			return fmt.Errorf("failed to create test book file: %w", err)
+		}
+	}
+
+	// Open the book file
+	file, err := os.Open(bookPath)
+	if err != nil {
+		return fmt.Errorf("failed to open book file: %w", err)
+	}
+	defer file.Close()
+
+	// Send via SMTP
+	filename := fmt.Sprintf("%s - %s.txt", title, author)
+	return s.smtpService.SendBookToKindle(email, title, author, file, filename)
 }

@@ -33,17 +33,29 @@ import { displayNotification, downloadFile } from "./util";
 export const websocketConn =
   (wsUrl: string): Middleware =>
   ({ dispatch, getState }: MiddlewareAPI<AppDispatch, RootState>) => {
+    console.log("Creating WebSocket connection to:", wsUrl);
     const socket = new WebSocket(wsUrl);
 
-    socket.onopen = () => onOpen(dispatch);
-    socket.onclose = () => onClose(dispatch);
-    socket.onmessage = (message) => route(dispatch, message);
-    socket.onerror = (event) =>
+    socket.onopen = () => {
+      console.log("WebSocket connected successfully");
+      onOpen(dispatch);
+    };
+    socket.onclose = () => {
+      console.log("WebSocket connection closed");
+      onClose(dispatch);
+    };
+    socket.onmessage = (message) => {
+      console.log("WebSocket message received:", message);
+      route(dispatch, message);
+    };
+    socket.onerror = (event) => {
+      console.error("WebSocket error:", event);
       displayNotification({
         appearance: NotificationType.DANGER,
         title: "Unable to connect to server.",
         timestamp: new Date().getTime()
       });
+    };
 
     return (next: Dispatch<AnyAction>) => (action: PayloadAction<any>) => {
       // Send Message action? Send data to the socket.

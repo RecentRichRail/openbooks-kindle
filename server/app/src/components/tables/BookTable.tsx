@@ -1,5 +1,5 @@
 import {
-  Button,
+  Image,
   Indicator,
   Loader,
   ScrollArea,
@@ -20,13 +20,12 @@ import {
   useReactTable
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { MagnifyingGlass, User } from "phosphor-react";
-import { useMemo, useRef, useState } from "react";
-import { useSelector } from "react-redux";
+import { MagnifyingGlass, User, BookOpen } from "phosphor-react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { useGetServersQuery } from "../../state/api";
 import { BookDetail } from "../../state/messages";
-import { sendDownload } from "../../state/stateSlice";
-import { RootState, useAppDispatch } from "../../state/store";
+import SendToKindle from "../SendToKindle";
+import { useAppDispatch } from "../../state/store";
 import FacetFilter, {
   ServerFacetEntry,
   StandardFacetEntry
@@ -61,6 +60,19 @@ export default function BookTable({ books }: BookTableProps) {
   const columns = useMemo(() => {
     const cols = (cols: number) => (width / 12) * cols;
     return [
+      // New Cover Column
+      columnHelper.display({
+        id: "cover",
+        header: "Cover",
+        size: cols(0.8),
+        enableColumnFilter: false,
+        cell: ({ row }) => (
+          <BookCover 
+            title={row.original.title} 
+            author={row.original.author}
+          />
+        )
+      }),
       columnHelper.accessor("server", {
         header: (props) => (
           <FacetFilter
@@ -97,6 +109,7 @@ export default function BookTable({ books }: BookTableProps) {
         enableColumnFilter: true,
         filterFn: stringInArray
       }),
+      // Enhanced Author Column
       columnHelper.accessor("author", {
         header: (props) => (
           <TextFilter
@@ -106,7 +119,19 @@ export default function BookTable({ books }: BookTableProps) {
             table={props.table}
           />
         ),
-        size: cols(2),
+        cell: (props) => (
+          <div style={{ padding: "4px 0" }}>
+            <Text
+              size="sm"
+              weight={500}
+              color="dark"
+              lineClamp={2}
+              style={{ lineHeight: 1.3 }}>
+              {props.getValue()}
+            </Text>
+          </div>
+        ),
+        size: cols(2.2),
         enableColumnFilter: false
       }),
       columnHelper.accessor("title", {
@@ -119,7 +144,7 @@ export default function BookTable({ books }: BookTableProps) {
           />
         ),
         minSize: 20,
-        size: cols(6),
+        size: cols(5),
         enableColumnFilter: false
       }),
       columnHelper.accessor("format", {
@@ -141,11 +166,15 @@ export default function BookTable({ books }: BookTableProps) {
         enableColumnFilter: false
       }),
       columnHelper.display({
-        header: "Download",
-        size: cols(1),
+        header: "Send to Kindle",
+        size: cols(1.2),
         enableColumnFilter: false,
         cell: ({ row }) => (
-          <DownloadButton book={row.original.full}></DownloadButton>
+          <SendToKindle 
+            book={row.original.full}
+            title={row.original.title}
+            author={row.original.author}
+          />
         )
       })
     ];
@@ -167,7 +196,7 @@ export default function BookTable({ books }: BookTableProps) {
   const rowVirtualizer = useVirtualizer({
     count: tableRows.length,
     getScrollElement: () => virtualizerRef.current,
-    estimateSize: () => 50,
+    estimateSize: () => 70, // Increased height for book covers
     overscan: 10
   });
 
@@ -227,10 +256,10 @@ export default function BookTable({ books }: BookTableProps) {
               virtualRow.index
             ] as unknown as Row<BookDetail>;
             return (
-              <tr key={row.id} style={{ height: 50 }}>
+              <tr key={row.id} style={{ height: 70 }}>
                 {row.getVisibleCells().map((cell) => {
                   return (
-                    <td key={cell.id}>
+                    <td key={cell.id} style={{ verticalAlign: 'middle' }}>
                       <Text lineClamp={1} color="dark">
                         {flexRender(
                           cell.column.columnDef.cell,
@@ -254,33 +283,148 @@ export default function BookTable({ books }: BookTableProps) {
   );
 }
 
-function DownloadButton({ book }: { book: string }) {
-  const dispatch = useAppDispatch();
+// Component for book cover display
+function BookCover({ title, author }: { title: string; author: string }) {
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
 
-  const [clicked, setClicked] = useState(false);
-  const isInFlight = useSelector((state: RootState) =>
-    state.state.inFlightDownloads.includes(book)
-  );
+  // Fetch book cover from multiple sources
+  const fetchBookCover = async (title: string, author: string) => {
+    if (!title || loading) return;
+    
+    setLoading(true);
+    setError(false);
 
-  // Prevent hitting the same button multiple times
-  const onClick = () => {
-    if (clicked) return;
-    dispatch(sendDownload(book));
-    setClicked(true);
+    try {
+      // Try Google Books API first
+      const googleUrl = await fetchGoogleBooksCover(title, author);
+      if (googleUrl) {
+        setCoverUrl(googleUrl);
+        setLoading(false);
+        return;
+      }
+
+      // Fallback to Open Library API
+      const openLibraryUrl = await fetchOpenLibraryCover(title, author);
+      if (openLibraryUrl) {
+        setCoverUrl(openLibraryUrl);
+        setLoading(false);
+        return;
+      }
+
+      // No cover found
+      setError(true);
+    } catch (err) {
+      console.warn('Error fetching book cover:', err);
+      setError(true);
+    }
+    
+    setLoading(false);
   };
 
+  // Google Books API integration
+  const fetchGoogleBooksCover = async (title: string, author: string): Promise<string | null> => {
+    try {
+      const query = encodeURIComponent(`${title} ${author}`);
+      const response = await fetch(
+        `https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=1`
+      );
+      const data = await response.json();
+      
+      if (data.items && data.items[0]?.volumeInfo?.imageLinks?.thumbnail) {
+        // Upgrade to higher quality if available
+        let imageUrl = data.items[0].volumeInfo.imageLinks.thumbnail;
+        if (data.items[0].volumeInfo.imageLinks.smallThumbnail) {
+          imageUrl = data.items[0].volumeInfo.imageLinks.smallThumbnail.replace('&zoom=1', '&zoom=2');
+        }
+        return imageUrl.replace('http://', 'https://');
+      }
+    } catch (error) {
+      console.warn('Google Books API error:', error);
+    }
+    return null;
+  };
+
+  // Open Library API integration
+  const fetchOpenLibraryCover = async (title: string, author: string): Promise<string | null> => {
+    try {
+      const query = encodeURIComponent(`${title} ${author}`);
+      const response = await fetch(
+        `https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&author=${encodeURIComponent(author)}&limit=1`
+      );
+      const data = await response.json();
+      
+      if (data.docs && data.docs[0]?.cover_i) {
+        const coverId = data.docs[0].cover_i;
+        return `https://covers.openlibrary.org/b/id/${coverId}-M.jpg`;
+      }
+    } catch (error) {
+      console.warn('Open Library API error:', error);
+    }
+    return null;
+  };
+
+  // Fetch cover when component mounts or props change
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      fetchBookCover(title, author);
+    }, Math.random() * 1000); // Stagger requests to avoid rate limiting
+
+    return () => clearTimeout(timeoutId);
+  }, [title, author]);
+
   return (
-    <Button
-      compact
-      size="xs"
-      radius="sm"
-      onClick={onClick}
-      sx={{ fontWeight: "normal", width: 80 }}>
-      {isInFlight ? (
-        <Loader variant="dots" color="gray" />
+    <div style={{ width: 40, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {loading ? (
+        <div 
+          style={{ 
+            width: 40, 
+            height: 60, 
+            backgroundColor: '#f1f3f4',
+            border: '1px solid #e0e0e0',
+            borderRadius: 4,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          <Loader size="xs" />
+        </div>
+      ) : coverUrl ? (
+        <Image
+          src={coverUrl}
+          alt={`Cover for ${title} by ${author}`}
+          width={40}
+          height={60}
+          fit="cover"
+          radius="sm"
+          withPlaceholder
+          style={{
+            border: '1px solid #e0e0e0',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+          }}
+        />
       ) : (
-        <span>Download</span>
+        <div 
+          style={{ 
+            width: 40, 
+            height: 60, 
+            backgroundColor: '#f8f9fa',
+            border: '2px dashed #dee2e6',
+            borderRadius: 4,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexDirection: 'column'
+          }}
+        >
+          <BookOpen size={16} color="#adb5bd" />
+          <Text size={8} color="dimmed" align="center" style={{ marginTop: 2, lineHeight: 1 }}>
+            No Cover
+          </Text>
+        </div>
       )}
-    </Button>
+    </div>
   );
 }

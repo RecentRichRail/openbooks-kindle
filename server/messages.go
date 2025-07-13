@@ -18,6 +18,7 @@ const (
 	CONNECT
 	SEARCH
 	DOWNLOAD
+	SEND_TO_KINDLE
 	RATELIMIT
 )
 
@@ -54,6 +55,14 @@ type SearchRequest struct {
 // DownloadRequest is a request to download a specific book from the IRC server
 type DownloadRequest struct {
 	Book string `json:"book"`
+}
+
+// SendToKindleRequest is a request to send a book via email to a Kindle device
+type SendToKindleRequest struct {
+	Book   string `json:"book"`
+	Email  string `json:"email"`
+	Title  string `json:"title"`
+	Author string `json:"author"`
 }
 
 // ConnectionResponse

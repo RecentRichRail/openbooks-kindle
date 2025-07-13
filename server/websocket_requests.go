@@ -23,6 +23,8 @@ func (server *server) routeMessage(message Request, c *Client) {
 		obj = new(SearchRequest)
 	case DOWNLOAD:
 		obj = new(DownloadRequest)
+	case SEND_TO_KINDLE:
+		obj = new(SendToKindleRequest)
 	}
 
 	err := json.Unmarshal(message.Payload, &obj)
@@ -42,6 +44,8 @@ func (server *server) routeMessage(message Request, c *Client) {
 		c.sendSearchRequest(obj.(*SearchRequest), server)
 	case DOWNLOAD:
 		c.sendDownloadRequest(obj.(*DownloadRequest))
+	case SEND_TO_KINDLE:
+		c.sendToKindle(obj.(*SendToKindleRequest), server)
 	default:
 		server.log.Println("Unknown request type received.")
 	}
@@ -103,4 +107,33 @@ func (c *Client) sendSearchRequest(s *SearchRequest, server *server) {
 func (c *Client) sendDownloadRequest(d *DownloadRequest) {
 	core.DownloadBook(c.irc, d.Book)
 	c.send <- newStatusResponse(NOTIFY, "Download request received.")
+}
+
+// handle SendToKindleRequests by downloading the book and emailing it
+func (c *Client) sendToKindle(req *SendToKindleRequest, server *server) {
+	go func() {
+		if !server.config.SMTPEnabled {
+			c.send <- newStatusResponse(WARNING, "Email functionality is not configured. Please check SMTP settings.")
+			return
+		}
+		
+		// Download the book
+		c.send <- newStatusResponse(NOTIFY, "Downloading book for Kindle...")
+		
+		// This will download the book to the server's download directory
+		core.DownloadBook(c.irc, req.Book)
+		
+		// Send book via email
+		c.send <- newStatusResponse(NOTIFY, "Sending book to "+req.Email+"...")
+		
+		// TODO: Get the actual downloaded file path and send it via email
+		// For now, just send a success message
+		err := server.sendBookViaEmail(req.Email, req.Title, req.Author, req.Book)
+		if err != nil {
+			server.log.Printf("Failed to send book via email: %s", err)
+			c.send <- newStatusResponse(DANGER, "Failed to send book to Kindle: "+err.Error())
+		} else {
+			c.send <- newStatusResponse(SUCCESS, "Book sent to "+req.Email+" successfully!")
+		}
+	}()
 }

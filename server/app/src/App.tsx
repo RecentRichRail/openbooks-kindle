@@ -1,5 +1,4 @@
 import {
-  AppShell,
   ColorScheme,
   ColorSchemeProvider,
   createEmotionCache,
@@ -9,28 +8,27 @@ import {
 import { useLocalStorage } from "@mantine/hooks";
 import { NotificationsProvider } from "@mantine/notifications";
 import NotificationDrawer from "./components/drawer/NotificationDrawer";
-import Sidebar from "./components/sidebar/Sidebar";
 import SearchPage from "./pages/SearchPage";
-import { useAppDispatch, useAppSelector } from "./state/store";
 
 const emotionCache = createEmotionCache({ key: "openbooks" });
 
-const useStyles = createStyles(() => ({
-  burger: {
-    position: "absolute",
-    bottom: 0,
-    left: 0
-  },
+const useStyles = createStyles((theme) => ({
   wrapper: {
     boxSizing: "border-box",
-    display: "flex",
-    flexWrap: "nowrap",
-    maxHeight: "100vh",
-    minHeight: "100vh"
+    width: "100vw",
+    height: "100vh",
+    margin: 0,
+    padding: 0,
+    backgroundColor:
+      theme.colorScheme === "dark"
+        ? theme.colors.dark[8]
+        : theme.colors.gray[0],
+    overflow: "hidden"
   }
 }));
 
 export default function App() {
+  console.log("App component rendering...");
   const { classes } = useStyles();
   const [colorScheme, setColorScheme] = useLocalStorage({
     key: "color-scheme",
@@ -38,8 +36,7 @@ export default function App() {
     getInitialValueInEffect: true
   });
 
-  const dispatch = useAppDispatch();
-  const open = useAppSelector((state) => state.state.isSidebarOpen);
+  console.log("App component state initialized, returning JSX...");
 
   return (
     <ColorSchemeProvider
@@ -80,22 +77,10 @@ export default function App() {
           }
         }}>
         <NotificationsProvider position="top-center">
-          <AppShell
-            navbar={<Sidebar />}
-            padding={0}
-            styles={(theme) => ({
-              main: {
-                backgroundColor:
-                  theme.colorScheme === "dark"
-                    ? theme.colors.dark[8]
-                    : theme.colors.gray[0]
-              }
-            })}>
-            <div className={classes.wrapper}>
-              <SearchPage />
-              <NotificationDrawer />
-            </div>
-          </AppShell>
+          <div className={classes.wrapper}>
+            <SearchPage />
+            <NotificationDrawer />
+          </div>
         </NotificationsProvider>
       </MantineProvider>
     </ColorSchemeProvider>

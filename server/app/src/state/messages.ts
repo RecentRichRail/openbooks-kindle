@@ -10,6 +10,7 @@ export enum MessageType {
   CONNECT,
   SEARCH,
   DOWNLOAD,
+  SEND_TO_KINDLE,
   RATELIMIT
 }
 

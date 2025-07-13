@@ -10,7 +10,6 @@ import { AppDispatch, RootState } from "./store";
 
 interface AppState {
   isConnected: boolean;
-  isSidebarOpen: boolean;
   activeItem: HistoryItem | null;
   username?: string;
   inFlightDownloads: string[];
@@ -26,7 +25,6 @@ const loadActive = (): HistoryItem | null => {
 
 const initialState: AppState = {
   isConnected: false,
-  isSidebarOpen: true,
   activeItem: loadActive(),
   username: undefined,
   inFlightDownloads: []
@@ -50,9 +48,6 @@ const stateSlice = createSlice({
     },
     removeInFlightDownload(state) {
       state.inFlightDownloads.shift();
-    },
-    toggleSidebar(state) {
-      state.isSidebarOpen = !state.isSidebarOpen;
     }
   }
 });
@@ -97,6 +92,20 @@ const sendSearch = createAsyncThunk(
   }
 );
 
+// Send book to Kindle via email
+const sendToKindle = createAsyncThunk(
+  "state/send_to_kindle",
+  (payload: { book: string; email: string; title: string; author: string }, { dispatch }) => {
+    dispatch(
+      sendMessage({
+        type: MessageType.SEND_TO_KINDLE,
+        payload
+      })
+    );
+    return payload;
+  }
+);
+
 const setSearchResults = createAsyncThunk<
   Promise<void>,
   SearchResponse,
@@ -125,10 +134,9 @@ export const {
   setConnectionState,
   setUsername,
   addInFlightDownload,
-  removeInFlightDownload,
-  toggleSidebar
+  removeInFlightDownload
 } = stateSlice.actions;
 
-export { stateSlice, sendMessage, sendDownload, sendSearch, setSearchResults };
+export { stateSlice, sendMessage, sendDownload, sendSearch, sendToKindle, setSearchResults };
 
 export default stateSlice.reducer;

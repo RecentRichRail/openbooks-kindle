@@ -31,9 +31,13 @@ var serverCmd = &cobra.Command{
 	Short: "Run OpenBooks in server mode.",
 	Long:  "Run OpenBooks in server mode. This allows you to use a web interface to search and download eBooks.",
 	PreRun: func(cmd *cobra.Command, args []string) {
+		// Load environment variables from .env file if it exists
+		util.LoadEnvFile(".env")
+		
 		bindGlobalServerFlags(&serverConfig)
 		rateLimit, _ := cmd.Flags().GetInt("rate-limit")
 		ensureValidRate(rateLimit, &serverConfig)
+		
 		// If cli flag isn't set (default value) check for the presence of an
 		// environment variable and use it if found.
 		if serverConfig.Basepath == cmd.Flag("basepath").DefValue {
@@ -42,6 +46,14 @@ var serverCmd = &cobra.Command{
 			}
 		}
 		serverConfig.Basepath = sanitizePath(serverConfig.Basepath)
+		
+		// Load SMTP configuration from environment variables
+		serverConfig.SMTPHost = util.GetEnvString("SMTP_HOST", "")
+		serverConfig.SMTPPort = util.GetEnvInt("SMTP_PORT", 587)
+		serverConfig.SMTPUsername = util.GetEnvString("SMTP_USERNAME", "")
+		serverConfig.SMTPPassword = util.GetEnvString("SMTP_PASSWORD", "")
+		serverConfig.SMTPFrom = util.GetEnvString("SMTP_FROM", "")
+		serverConfig.SMTPEnabled = util.GetEnvBool("SMTP_ENABLED", false)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		if openBrowser {

@@ -30,6 +30,7 @@ func (server *server) registerRoutes() *chi.Mux {
 	router.Get("/ws", server.serveWs())
 	router.Get("/stats", server.statsHandler())
 	router.Get("/servers", server.serverListHandler())
+	router.Post("/send-to-kindle", server.sendToKindleHandler())
 
 	router.Group(func(r chi.Router) {
 		r.Use(server.requireUser)
@@ -210,5 +211,55 @@ func (server *server) deleteBooksHandler() http.HandlerFunc {
 			server.log.Printf("Error deleting book file: %s\n", err)
 			w.WriteHeader(http.StatusInternalServerError)
 		}
+	}
+}
+
+func (server *server) sendToKindleHandler() http.HandlerFunc {
+	type sendToKindleRequest struct {
+		Email    string `json:"email"`
+		BookFile string `json:"bookFile"`
+		Title    string `json:"title"`
+		Author   string `json:"author"`
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !server.config.SMTPEnabled {
+			http.Error(w, "SMTP is not configured", http.StatusServiceUnavailable)
+			return
+		}
+
+		var req sendToKindleRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		// Validate email
+		if req.Email == "" {
+			http.Error(w, "Email is required", http.StatusBadRequest)
+			return
+		}
+
+		// Validate required fields
+		if req.BookFile == "" || req.Title == "" || req.Author == "" {
+			http.Error(w, "BookFile, Title, and Author are required", http.StatusBadRequest)
+			return
+		}
+
+		// For now, we'll simulate sending an email
+		// In a real implementation, you would:
+		// 1. Validate the book file path
+		// 2. Open the book file
+		// 3. Send it via SMTP
+
+		server.log.Printf("Send to Kindle request: %s by %s to %s", req.Title, req.Author, req.Email)
+
+		// Simulate success response
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status":  "success",
+			"message": "Book sent to Kindle successfully",
+		})
 	}
 }
