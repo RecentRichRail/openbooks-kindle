@@ -1,23 +1,123 @@
-# openbooks
+# OpenBooks - Send to Kindle Edition
 
-> NOTE: Going forward only the latest release will be supported. If you encounter any issues, be sure you are using the latest version.
+A customized version of [OpenBooks](https://github.com/evan-buss/openbooks) with enhanced mobile-friendly UI and "Send to Kindle" email functionality.
 
-[![Docker Pulls](https://img.shields.io/docker/pulls/evanbuss/openbooks.svg)](https://hub.docker.com/r/evanbuss/openbooks/)
+## Features
 
-Openbooks allows you to download ebooks from irc.irchighway.net quickly and easily.
+### 🆕 New Features
+- **Send to Kindle**: Email books directly to your Kindle device via SMTP
+- **Mobile-First Design**: Card-based layout optimized for mobile devices  
+- **SMTP Configuration**: Easy email setup with support for Gmail, Outlook, Yahoo, and custom SMTP servers
+- **Test Email Functionality**: Built-in SMTP testing to verify your email configuration
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./.github/home_v3_dark.png">
-  <img alt="openbooks screenshot" src="./.github/home_v3.png">
-</picture>
+### 📱 UI Improvements
+- Modern card-based book display instead of table rows
+- Responsive design that works great on mobile devices
+- Simplified interface without sidebar/history clutter
+- Clean notification system
 
+## Quick Start
 
-## Getting Started
+1. **Download a release** or build from source
+2. **Configure SMTP** (see [SMTP Setup](#smtp-setup))
+3. **Run the application**:
+   ```bash
+   ./openbooks server --name your_username --browser
+   ```
+4. **Search for books** and use the "Send to Kindle" button!
 
-### Binary
+## SMTP Setup
 
-1. Download the latest release for your platform from the [releases page](https://github.com/evan-buss/openbooks/releases).
-2. Run the binary
+Create a `.env` file in the same directory as your OpenBooks binary:
+
+```env
+SMTP_ENABLED=true
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=your_email@gmail.com
+SMTP_PASSWORD=your_app_password
+SMTP_FROM=your_email@gmail.com
+```
+
+For detailed SMTP configuration instructions, see [SMTP_README.md](SMTP_README.md).
+
+## Building from Source
+
+### Prerequisites
+- Go 1.19+
+- Node.js 16+
+- npm or yarn
+
+### Build Steps
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/your-username/openbooks-kindle.git
+   cd openbooks-kindle
+   ```
+
+2. **Build the frontend**:
+   ```bash
+   cd server/app
+   npm install
+   npm run build
+   cd ../..
+   ```
+
+3. **Build the backend**:
+   ```bash
+   go build -o openbooks ./cmd/openbooks/
+   ```
+
+4. **Run the application**:
+   ```bash
+   ./openbooks server --name your_username --browser
+   ```
+
+## Usage
+
+1. **Start the server** with your IRC username
+2. **Open your browser** to http://localhost:5228
+3. **Search for books** using the search bar
+4. **Send to Kindle** by clicking the email button on any book card
+5. **Test SMTP** using the envelope icon in the top header
+
+## Configuration
+
+### Command Line Options
+```bash
+./openbooks server --help
+```
+
+### Environment Variables
+See [SMTP_README.md](SMTP_README.md) for complete SMTP configuration options.
+
+## Contributing
+
+This is a fork of the original OpenBooks project with custom modifications. For the original project, visit [evan-buss/openbooks](https://github.com/evan-buss/openbooks).
+
+### Changes Made
+- Converted table-based UI to mobile-friendly cards
+- Added SMTP email functionality  
+- Removed sidebar and search history
+- Added test email functionality
+- Enhanced responsive design
+
+## License
+
+This project maintains the same license as the original OpenBooks project.
+
+## Credits
+
+- Original OpenBooks project: [evan-buss/openbooks](https://github.com/evan-buss/openbooks)
+- UI framework: [Mantine](https://mantine.dev/)
+- Icons: [Phosphor Icons](https://phosphoricons.com/)
+
+## Support
+
+For issues related to the Send to Kindle functionality or mobile UI, please open an issue in this repository.
+
+For general OpenBooks issues, refer to the [original project](https://github.com/evan-buss/openbooks).
    - Linux users may have to run `chmod +x [binary name]` to make it executable
 3. `./openbooks --help`
    - This will display all possible configuration values and introduce the two modes; CLI or Server.

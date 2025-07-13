@@ -7,6 +7,14 @@ openbooks
 .task/
 docs/venv/
 docs/site/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Test files
+test-book.txt
 # end persist
 
 
