@@ -5,3 +5,35 @@
 openbooks.exe
 openbooks
 *.exe
+
+# Ignore binary test files that can cause build issues
+**/*.epub
+**/*.zip
+**/*.pdf
+cmd/mock_server/great-gatsby.epub
+cmd/mock_server/SearchBot_results_for__the_great_gatsby.txt.zip
+
+# Ignore development files
+.git
+.env
+.env.*
+!.env.example
+*.log
+logs/
+
+# Ignore OS and editor files
+.DS_Store
+Thumbs.db
+.vscode
+.idea
+*.swp
+*.swo
+
+# Ignore documentation
+docs/
+*.md
+!README.md
+
+# Ignore development tools
+Taskfile*.yaml
+build.sh

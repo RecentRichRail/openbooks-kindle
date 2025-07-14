@@ -125,6 +125,60 @@ Your stack creates these volumes:
 
 ## 🛠️ Troubleshooting in Portainer
 
+### Build Errors
+
+#### "unrecognized token '<'" Error
+
+This error typically occurs when:
+
+1. **Git LFS Files**: Binary files are replaced with HTML pointers
+2. **Network Issues**: Files downloaded as HTML error pages
+3. **Corrupted Files**: Binary files contain HTML content
+
+**Solutions:**
+
+1. **Clean Build Environment:**
+   ```bash
+   # Run the pre-build script (if available locally)
+   ./portainer-build.sh
+   ```
+
+2. **Force Rebuild in Portainer:**
+   - Go to **Stacks** → **openbooks-kindle**
+   - Click **Editor**
+   - Check "Re-pull image and rebuild"
+   - Click **Update the stack**
+
+3. **Check Repository Access:**
+   - Ensure Portainer can access your GitHub repository
+   - Verify repository permissions
+   - Try using HTTPS instead of SSH repository URL
+
+4. **Verify .dockerignore:**
+   - Make sure `.dockerignore` excludes problematic files:
+     ```
+     **/*.epub
+     **/*.zip
+     cmd/mock_server/great-gatsby.epub
+     cmd/mock_server/SearchBot_results_for__the_great_gatsby.txt.zip
+     ```
+
+5. **Alternative: Use Pre-built Image:**
+   - Build the image locally first
+   - Push to Docker Hub or registry
+   - Use the pre-built image in Portainer
+
+#### Frontend Build Failures:
+
+```
+Error: npm install failed
+```
+
+**Solution:**
+- Clear npm cache in build
+- Use `npm ci` instead of `npm install`
+- Check Node.js version compatibility
+
 ### SMTP Issues:
 
 1. **Check Environment Variables:**
@@ -154,6 +208,52 @@ Your stack creates these volumes:
 3. **Port Conflicts:**
    - Verify port 5228 isn't used by another service
    - Change port in compose file if needed
+
+### Portainer-Specific Issues:
+
+#### Repository Access Problems:
+1. **Check Repository URL:**
+   - Use HTTPS: `https://github.com/RecentRichRail/openbooks-kindle.git`
+   - Avoid SSH URLs in Portainer
+   - Ensure repository is public or provide credentials
+
+2. **Branch Issues:**
+   - Verify branch name (`master` vs `main`)
+   - Check if branch exists
+   - Try using specific commit hash
+
+3. **Build Context Problems:**
+   - Dockerfile must be in repository root
+   - docker-compose.yml must be in repository root
+   - Check file permissions
+
+4. **Resource Limitations:**
+   - Increase build timeout in Portainer
+   - Check available disk space
+   - Monitor memory usage during build
+
+#### Stack Deployment Issues:
+
+1. **Environment Variables Not Loading:**
+   ```bash
+   # Check in container
+   docker exec openbooks-kindle env | grep SMTP
+   ```
+
+2. **Volume Mount Issues:**
+   ```bash
+   # Verify volumes exist
+   docker volume ls | grep openbooks
+   
+   # Check volume permissions
+   docker exec openbooks-kindle ls -la /books
+   ```
+
+3. **Port Conflicts:**
+   ```bash
+   # Check if port 5228 is in use
+   netstat -tulpn | grep :5228
+   ```
 
 ### Health Check Failures:
 
