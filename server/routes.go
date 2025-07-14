@@ -9,6 +9,7 @@ import (
 	"github.com/evan-buss/openbooks/irc"
 	"io/fs"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -23,6 +24,41 @@ import (
 
 //go:embed app/dist
 var reactClient embed.FS
+
+// generateRandomUsername creates a random username for IRC connections
+func generateRandomUsername(baseUsername string) string {
+	adjectives := []string{
+		"happy", "clever", "swift", "bright", "quiet", "bold", "calm", "wise", "kind", "cool",
+		"brave", "eager", "fierce", "gentle", "humble", "jolly", "keen", "lively", "merry", "noble",
+		"proud", "quick", "radiant", "serene", "trusty", "vibrant", "witty", "zealous", "agile", "daring",
+		"elegant", "fearless", "graceful", "honest", "inventive", "joyful", "loyal", "magnificent", "optimistic", "peaceful",
+		"reliable", "spirited", "talented", "unique", "valiant", "wonderful", "excellent", "youthful", "zestful", "amazing",
+		"brilliant", "charming", "delightful", "energetic", "fabulous", "glorious", "heroic", "inspiring", "jubilant", "kindhearted",
+	}
+	
+	nouns := []string{
+		"falcon", "tiger", "eagle", "wolf", "bear", "lion", "fox", "hawk", "shark", "panther",
+		"dragon", "phoenix", "raven", "owl", "deer", "rabbit", "dolphin", "whale", "cat", "dog",
+		"horse", "elephant", "rhino", "zebra", "giraffe", "monkey", "penguin", "turtle", "snake", "frog",
+		"butterfly", "bee", "spider", "ant", "cricket", "firefly", "mantis", "beetle", "moth", "dragonfly",
+		"mountain", "river", "ocean", "forest", "desert", "valley", "canyon", "meadow", "lake", "island",
+		"star", "moon", "sun", "comet", "meteor", "galaxy", "nebula", "planet", "asteroid", "cosmos",
+	}
+	
+	// Generate random numbers for more variety
+	numbers := rand.Intn(99999) + 10000
+	
+	// Pick random adjective and noun
+	adjective := adjectives[rand.Intn(len(adjectives))]
+	noun := nouns[rand.Intn(len(nouns))]
+	
+	// Create username without underscores, using camelCase style
+	if baseUsername == "" {
+		return fmt.Sprintf("%s%s%d", adjective, noun, numbers)
+	}
+	
+	return fmt.Sprintf("%s%s%s%d", baseUsername, adjective, noun, numbers)
+}
 
 func (server *server) registerRoutes() *chi.Mux {
 	router := chi.NewRouter()
@@ -78,12 +114,14 @@ func (server *server) serveWs() http.HandlerFunc {
 			return
 		}
 
+		randomUsername := generateRandomUsername(server.config.UserName)
+
 		client := &Client{
 			conn: conn,
 			send: make(chan interface{}, 128),
 			uuid: userId,
-			irc:  irc.New(server.config.UserName, server.config.UserAgent),
-			log:  log.New(os.Stdout, fmt.Sprintf("CLIENT (%s): ", server.config.UserName), log.LstdFlags|log.Lmsgprefix),
+			irc:  irc.New(randomUsername, server.config.UserAgent),
+			log:  log.New(os.Stdout, fmt.Sprintf("CLIENT (%s): ", randomUsername), log.LstdFlags|log.Lmsgprefix),
 			ctx:  context.Background(),
 		}
 

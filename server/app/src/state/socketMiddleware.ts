@@ -109,6 +109,9 @@ const route = (dispatch: AppDispatch, msg: MessageEvent<any>): void => {
         dispatch(openbooksApi.util.invalidateTags(["books"]));
         dispatch(removeInFlightDownload());
         return notification;
+      case MessageType.SEND_TO_KINDLE:
+        // Handle send to kindle completion notification
+        return notification;
       case MessageType.RATELIMIT:
         dispatch(deleteHistoryItem());
         return notification;

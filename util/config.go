@@ -1,6 +1,7 @@
 package util
 
 import (
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -8,17 +9,25 @@ import (
 
 // LoadEnvFile loads environment variables from a .env file
 func LoadEnvFile(filename string) error {
+	log.Printf("UTIL: Attempting to load .env file: %s", filename)
+	
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		// File doesn't exist, skip loading
+		log.Printf("UTIL: .env file does not exist: %s", filename)
 		return nil
 	}
 
 	data, err := os.ReadFile(filename)
 	if err != nil {
+		log.Printf("UTIL: Error reading .env file: %v", err)
 		return err
 	}
 
+	log.Printf("UTIL: Successfully read .env file, %d bytes", len(data))
+	
 	lines := strings.Split(string(data), "\n")
+	loadedVars := 0
+	
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
@@ -38,9 +47,12 @@ func LoadEnvFile(filename string) error {
 			value = value[1 : len(value)-1]
 		}
 
+		log.Printf("UTIL: Setting environment variable: %s=%s", key, value)
 		os.Setenv(key, value)
+		loadedVars++
 	}
 
+	log.Printf("UTIL: Loaded %d environment variables from .env file", loadedVars)
 	return nil
 }
 

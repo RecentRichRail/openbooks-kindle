@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
@@ -83,6 +84,9 @@ func New(config Config) *server {
 
 // Start instantiates the web server and opens the browser
 func Start(config Config) {
+	// Initialize random seed for username generation
+	rand.Seed(time.Now().UnixNano())
+	
 	createBooksDirectory(config)
 	router := chi.NewRouter()
 	router.Use(middleware.RequestID)
@@ -159,23 +163,17 @@ func createBooksDirectory(config Config) {
 }
 
 // sendBookViaEmail sends a book file to the specified email address
-func (s *server) sendBookViaEmail(email, title, author, bookIdentifier string) error {
+func (s *server) sendBookViaEmail(email, title, author, bookPath string) error {
 	if !s.config.SMTPEnabled {
 		return fmt.Errorf("SMTP is not enabled")
 	}
 
-	// For now, we'll create a mock file to test email functionality
-	// In the future, this should find the actual downloaded book file
-	bookPath := filepath.Join(s.config.DownloadDir, "books", "test-book.txt")
-
-	// Create a test file if it doesn't exist
+	// Check if the downloaded book file exists
 	if _, err := os.Stat(bookPath); os.IsNotExist(err) {
-		testContent := fmt.Sprintf("Test book: %s by %s\n\nThis is a test file for SMTP functionality.", title, author)
-		err = os.WriteFile(bookPath, []byte(testContent), 0644)
-		if err != nil {
-			return fmt.Errorf("failed to create test book file: %w", err)
-		}
+		return fmt.Errorf("book file not found: %s", bookPath)
 	}
+
+	s.log.Printf("SERVER: Sending book file to %s: %s", email, bookPath)
 
 	// Open the book file
 	file, err := os.Open(bookPath)
@@ -184,7 +182,15 @@ func (s *server) sendBookViaEmail(email, title, author, bookIdentifier string) e
 	}
 	defer file.Close()
 
+	// Determine the filename - use the original filename or create a proper one
+	filename := filepath.Base(bookPath)
+	if filename == "." || filename == "/" {
+		// If no proper filename, create one
+		filename = fmt.Sprintf("%s - %s.epub", title, author)
+	}
+
+	s.log.Printf("SERVER: Sending file %s as %s", bookPath, filename)
+
 	// Send via SMTP
-	filename := fmt.Sprintf("%s - %s.txt", title, author)
 	return s.smtpService.SendBookToKindle(email, title, author, file, filename)
 }

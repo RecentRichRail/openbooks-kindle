@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -32,7 +33,24 @@ var serverCmd = &cobra.Command{
 	Long:  "Run OpenBooks in server mode. This allows you to use a web interface to search and download eBooks.",
 	PreRun: func(cmd *cobra.Command, args []string) {
 		// Load environment variables from .env file if it exists
-		util.LoadEnvFile(".env")
+		log.Println("SERVER: About to load .env file...")
+		
+		// Try to load .env from the current directory first
+		err := util.LoadEnvFile(".env")
+		if err != nil {
+			log.Printf("SERVER: Error loading .env file from current dir: %v", err)
+		}
+		
+		// Also try to load from the executable's directory
+		execPath, _ := os.Executable()
+		execDir := filepath.Dir(execPath)
+		envPath := filepath.Join(execDir, ".env")
+		err = util.LoadEnvFile(envPath)
+		if err != nil {
+			log.Printf("SERVER: Error loading .env file from exec dir: %v", err)
+		}
+		
+		log.Println("SERVER: .env file loading completed")
 		
 		bindGlobalServerFlags(&serverConfig)
 		rateLimit, _ := cmd.Flags().GetInt("rate-limit")
@@ -54,6 +72,14 @@ var serverCmd = &cobra.Command{
 		serverConfig.SMTPPassword = util.GetEnvString("SMTP_PASSWORD", "")
 		serverConfig.SMTPFrom = util.GetEnvString("SMTP_FROM", "")
 		serverConfig.SMTPEnabled = util.GetEnvBool("SMTP_ENABLED", false)
+		
+		// Debug: Print SMTP configuration
+		log.Printf("SMTP Configuration loaded:")
+		log.Printf("  SMTP_ENABLED: %t", serverConfig.SMTPEnabled)
+		log.Printf("  SMTP_HOST: %s", serverConfig.SMTPHost)
+		log.Printf("  SMTP_PORT: %d", serverConfig.SMTPPort)
+		log.Printf("  SMTP_USERNAME: %s", serverConfig.SMTPUsername)
+		log.Printf("  SMTP_FROM: %s", serverConfig.SMTPFrom)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		if openBrowser {

@@ -3,6 +3,9 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/evan-buss/openbooks/core"
@@ -111,29 +114,121 @@ func (c *Client) sendDownloadRequest(d *DownloadRequest) {
 
 // handle SendToKindleRequests by downloading the book and emailing it
 func (c *Client) sendToKindle(req *SendToKindleRequest, server *server) {
+	// Debug: Log the book details being requested
+	server.log.Printf("SERVER: Send to Kindle request for book: %+v", req.Book)
+	server.log.Printf("SERVER: Email address: %s", req.Email)
+	
+	if !server.config.SMTPEnabled {
+		c.send <- newStatusResponse(WARNING, "Email functionality is not configured. Please check SMTP settings.")
+		return
+	}
+	
+	// Send the download request to IRC
+	server.log.Printf("SERVER: Sending IRC download request...")
+	core.DownloadBook(c.irc, req.Book)
+	
+	c.send <- newStatusResponse(NOTIFY, "Download request sent. Waiting for book to download...")
+	
 	go func() {
-		if !server.config.SMTPEnabled {
-			c.send <- newStatusResponse(WARNING, "Email functionality is not configured. Please check SMTP settings.")
+		// Wait for the download to complete and find the file
+		downloadedFilePath := ""
+		maxWaitTime := 5 * time.Minute
+		checkInterval := 2 * time.Second
+		startTime := time.Now()
+		
+		server.log.Printf("SERVER: Starting download monitoring, will check every %v for up to %v", checkInterval, maxWaitTime)
+		
+		for time.Since(startTime) < maxWaitTime {
+			elapsed := time.Since(startTime)
+			checkNum := int(elapsed/checkInterval) + 1
+			server.log.Printf("SERVER: Download check #%d (elapsed: %v)", checkNum, elapsed.Round(time.Second))
+			
+			// Check for newly downloaded files in the books directory
+			booksDir := filepath.Join(server.config.DownloadDir, "books")
+			files, err := os.ReadDir(booksDir)
+			if err != nil {
+				server.log.Printf("SERVER: Error reading books directory: %v", err)
+				time.Sleep(checkInterval)
+				continue
+			}
+			
+			server.log.Printf("SERVER: Found %d files in books directory", len(files))
+			
+			// Look for files created within the last 2 minutes (since our request started)
+			cutoffTime := startTime.Add(-1 * time.Minute) // Allow some buffer
+			for _, file := range files {
+				if file.IsDir() {
+					continue
+				}
+				
+				filePath := filepath.Join(booksDir, file.Name())
+				fileInfo, err := file.Info()
+				if err != nil {
+					continue
+				}
+				
+				// Check if this file was modified recently and is not a temporary file
+				if fileInfo.ModTime().After(cutoffTime) && !strings.HasSuffix(file.Name(), ".temp") {
+					server.log.Printf("SERVER: Found recent file: %s (modified: %v)", file.Name(), fileInfo.ModTime())
+					
+					// Additional check: make sure the file is complete (not being written to)
+					// Wait a moment and check if the size is stable
+					initialSize := fileInfo.Size()
+					time.Sleep(1 * time.Second)
+					
+					if updatedInfo, err := os.Stat(filePath); err == nil {
+						if updatedInfo.Size() == initialSize && updatedInfo.Size() > 1000 { // File is stable and has reasonable size
+							downloadedFilePath = filePath
+							break
+						}
+					}
+				}
+			}
+			
+			if downloadedFilePath != "" {
+				break
+			}
+			
+			time.Sleep(checkInterval)
+		}
+		
+		if downloadedFilePath == "" {
+			server.log.Printf("SERVER: No downloaded file found after %v", maxWaitTime)
+			c.send <- newStatusResponse(DANGER, "Download timed out or failed. The book may not be available.")
 			return
 		}
 		
-		// Download the book
-		c.send <- newStatusResponse(NOTIFY, "Downloading book for Kindle...")
+		server.log.Printf("SERVER: Download completed, file found: %s", downloadedFilePath)
+		c.send <- newStatusResponse(NOTIFY, "Book downloaded! Sending to "+req.Email+"...")
 		
-		// This will download the book to the server's download directory
-		core.DownloadBook(c.irc, req.Book)
+		// Extract title and author from the book request or filename
+		title := "Unknown Title"
+		author := "Unknown Author"
+		if req.Book != "" {
+			// Try to parse title/author from book request string
+			// Book strings are typically in format "Title by Author" 
+			parts := strings.Split(req.Book, " by ")
+			if len(parts) >= 2 {
+				title = strings.TrimSpace(parts[0])
+				author = strings.TrimSpace(parts[1])
+			} else {
+				title = req.Book
+			}
+		}
 		
-		// Send book via email
-		c.send <- newStatusResponse(NOTIFY, "Sending book to "+req.Email+"...")
-		
-		// TODO: Get the actual downloaded file path and send it via email
-		// For now, just send a success message
-		err := server.sendBookViaEmail(req.Email, req.Title, req.Author, req.Book)
+		// Send the book via email
+		err := server.sendBookViaEmail(req.Email, title, author, downloadedFilePath)
 		if err != nil {
-			server.log.Printf("Failed to send book via email: %s", err)
-			c.send <- newStatusResponse(DANGER, "Failed to send book to Kindle: "+err.Error())
+			server.log.Printf("SERVER: Email sending failed: %v", err)
+			c.send <- newStatusResponse(DANGER, fmt.Sprintf("Failed to send email: %v", err))
 		} else {
-			c.send <- newStatusResponse(SUCCESS, "Book sent to "+req.Email+" successfully!")
+			server.log.Printf("SERVER: Email sent successfully to %s", req.Email)
+			c.send <- newStatusResponse(SUCCESS, "Book sent to your email successfully!")
+			
+			// Clean up the downloaded file
+			if err := os.Remove(downloadedFilePath); err != nil {
+				server.log.Printf("SERVER: Failed to clean up file %s: %v", downloadedFilePath, err)
+			}
 		}
 	}()
 }

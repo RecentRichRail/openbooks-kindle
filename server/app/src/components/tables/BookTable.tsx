@@ -26,6 +26,8 @@ import { useGetServersQuery } from "../../state/api";
 import { BookDetail } from "../../state/messages";
 import SendToKindle from "../SendToKindle";
 import { useAppDispatch } from "../../state/store";
+import { sendDownload } from "../../state/stateSlice";
+import { Button, Group } from "@mantine/core";
 import FacetFilter, {
   ServerFacetEntry,
   StandardFacetEntry
@@ -166,16 +168,33 @@ export default function BookTable({ books }: BookTableProps) {
         enableColumnFilter: false
       }),
       columnHelper.display({
-        header: "Send to Kindle",
-        size: cols(1.2),
+        header: "Actions",
+        size: cols(1.5),
         enableColumnFilter: false,
-        cell: ({ row }) => (
-          <SendToKindle 
-            book={row.original.full}
-            title={row.original.title}
-            author={row.original.author}
-          />
-        )
+        cell: ({ row }) => {
+          const dispatch = useAppDispatch();
+          
+          const handleDownload = () => {
+            dispatch(sendDownload(row.original.full));
+          };
+
+          return (
+            <Group spacing="xs" noWrap>
+              <Button 
+                size="xs" 
+                variant="outline"
+                onClick={handleDownload}
+              >
+                Download
+              </Button>
+              <SendToKindle 
+                book={row.original.full}
+                title={row.original.title}
+                author={row.original.author}
+              />
+            </Group>
+          );
+        }
       })
     ];
   }, [width, servers]);

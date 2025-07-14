@@ -174,7 +174,7 @@ export default function SearchPage() {
               <EnvelopeSimple size={20} />
             </ActionIcon>
           </Tooltip>
-          <Tooltip label={isConnected ? "Connected to IRC" : "Disconnected from IRC"}>
+          <Tooltip label={isConnected ? `Connected to IRC as ${username || 'Unknown'}` : "Disconnected from IRC"}>
             <ActionIcon variant="subtle" size="lg">
               {isConnected ? (
                 <WifiHigh size={20} color="green" />

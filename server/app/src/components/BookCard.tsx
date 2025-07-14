@@ -152,7 +152,7 @@ export default function BookCard({ book }: BookCardProps) {
           
           <Group position="right">
             <SendToKindle 
-              book={`${book.title} by ${book.author}`}
+              book={book.full}
               title={book.title}
               author={book.author}
             />
