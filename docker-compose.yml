@@ -9,6 +9,7 @@ services:
     volumes:
       - books_data:/books
       - ./logs:/app/logs
+      - ./.env:/app/.env:ro
     environment:
       # Base configuration
       - BASE_PATH=/
@@ -20,6 +21,8 @@ services:
       - SMTP_USERNAME=your_email@gmail.com
       - SMTP_PASSWORD=your_app_password
       - SMTP_FROM=your_email@gmail.com
+    env_file:
+      - .env
     command: ["./openbooks", "server", "--name", "", "--persist", "--no-browser-downloads", "--dir", "/books", "--port", "80"]
     restart: unless-stopped
     healthcheck:
