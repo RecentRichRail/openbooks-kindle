@@ -2,7 +2,7 @@
 FROM node:16 as web
 WORKDIR /web
 COPY server/app/package*.json ./
-RUN npm ci --only=production --silent
+RUN npm ci --silent
 COPY server/app/ ./
 RUN npm run build
 

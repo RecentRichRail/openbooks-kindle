@@ -136,4 +136,11 @@ typings/
 # DynamoDB Local files
 .dynamodb/
 
+#DockerCompose
+# Docker Compose files
+docker-compose.build.yml
+docker-compose.env.yml
+docker-compose.fixed.yml
+docker-compose.portainer.yml
+
 # End of https://www.gitignore.io/api/node,go
