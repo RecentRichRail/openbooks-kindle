@@ -5,20 +5,23 @@ WORKDIR /web/server/app/
 RUN npm install
 RUN npm run build
 
-FROM golang as build
+FROM golang:1.21 as build
 WORKDIR /go/src/
 COPY . .
 COPY --from=web /web/ .
 
 ENV CGO_ENABLED=0
-RUN go get -d -v ./...
-RUN go install -v ./...
+RUN go mod download
+RUN go mod verify
 WORKDIR /go/src/cmd/openbooks/
-RUN go build
+RUN go build -o openbooks
 
-FROM gcr.io/distroless/static as app
+FROM gcr.io/distroless/static-debian11 as app
 WORKDIR /app
 COPY --from=build /go/src/cmd/openbooks/openbooks .
+
+# Create a non-root user for security
+USER 1000:1000
 
 EXPOSE 80
 VOLUME [ "/books" ]
